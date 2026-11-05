@@ -1,26 +1,66 @@
 #include <Arduino.h>
 #include <SPI.h>
-#include <SD.h>
-#include <epd4in2_V2.h>
-#include <display.h>
+#include "display/display.h"
+#include "epub/sd_card.h"
+#include "screens/main_menu.h"
 
 #define BUTTON_MENU 4
 #define BUTTON_UP 5
 #define BUTTON_DOWN 6
 
+#define DEBOUNCE_DELAY 50
+
 #define SPI_SCK 14
 #define SPI_MISO 12
 #define SPI_MOSI 13
 
-#define SD_CS 15
+SET_LOOP_TASK_STACK_SIZE(32 * 1024);
 
-int prev_state_menu = HIGH;
-int prev_state_up = HIGH;
-int prev_state_down = HIGH;
+enum screen_selected
+{
+  MAIN_SCREEN,
+  BOOK_SCREEN
+};
 
-int button_state_menu;
-int button_state_up;
-int button_state_down;
+screen_selected screen = MAIN_SCREEN;
+
+struct Button
+{
+  uint8_t pin;
+  int lastReading;
+  int stableState;
+  unsigned long lastDebounceTime;
+};
+
+Button menuButton = {BUTTON_MENU, HIGH, HIGH, 0};
+Button upButton = {BUTTON_UP, HIGH, HIGH, 0};
+Button downButton = {BUTTON_DOWN, HIGH, HIGH, 0};
+
+bool buttonPressed(Button &button)
+{
+  int reading = digitalRead(button.pin);
+
+  if (reading != button.lastReading)
+  {
+    button.lastDebounceTime = millis();
+    button.lastReading = reading;
+  }
+
+  if (millis() - button.lastDebounceTime >= DEBOUNCE_DELAY)
+  {
+    if (reading != button.stableState)
+    {
+      button.stableState = reading;
+
+      if (button.stableState == LOW)
+      {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
 
 void setup()
 {
@@ -33,55 +73,58 @@ void setup()
 
   SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
 
-  if (!SD.begin(SD_CS, SPI))
-  {
-    Serial.println("SD Card initialization failed!");
-  }
-  else
-  {
-    Serial.println("SD Card initialized successfully.");
-  }
+  sdInit(SPI);
+  displayInit();
 
-  epd.Init();
-  SPI.endTransaction();
+  menuOpen();
 
-  showPage("First test", "of my diy", "ereader", true);
+  Serial.printf("Total heap: %d \n", ESP.getHeapSize());
+  Serial.printf("Free heap: %d \n", ESP.getFreeHeap());
+  Serial.printf("Total PSRAM: %d \n", ESP.getPsramSize());
+  Serial.printf("Free PSRAM: %u\n", ESP.getFreePsram());
 }
 
 void loop()
 {
-  button_state_menu = digitalRead(BUTTON_MENU);
-  button_state_up = digitalRead(BUTTON_UP);
-  button_state_down = digitalRead(BUTTON_DOWN);
-
-  if (prev_state_menu == HIGH && button_state_menu == LOW)
+  if (buttonPressed(menuButton))
   {
     Serial.println("Menu: pressed");
-    showPage("hello", "", "", false);
+
+    if (screen == MAIN_SCREEN)
+    {
+      openBook();
+    }
+    else
+    {
+      // showSettingsMenu();
+    }
   }
 
-  if (prev_state_menu == LOW && button_state_menu == HIGH)
-    Serial.println("Menu: released");
-
-  if (prev_state_up == HIGH && button_state_up == LOW)
+  if (buttonPressed(upButton))
   {
     Serial.println("Up: pressed");
-    showPage("button", "page up", "", false);
+
+    if (screen == MAIN_SCREEN)
+    {
+      goToPreviousBook();
+    }
+    else
+    {
+      // goToPreviousPage();
+    }
   }
 
-  if (prev_state_up == LOW && button_state_up == HIGH)
-    Serial.println("Up: released");
-
-  if (prev_state_down == HIGH && button_state_down == LOW)
+  if (buttonPressed(downButton))
   {
     Serial.println("Down: pressed");
-    showPage("button", "page down", "", false); // partial
+
+    if (screen == MAIN_SCREEN)
+    {
+      goToNextBook();
+    }
+    else
+    {
+      // goToNextPage();
+    }
   }
-
-  if (prev_state_down == LOW && button_state_down == HIGH)
-    Serial.println("Down: released");
-
-  prev_state_menu = button_state_menu;
-  prev_state_up = button_state_up;
-  prev_state_down = button_state_down;
 }
