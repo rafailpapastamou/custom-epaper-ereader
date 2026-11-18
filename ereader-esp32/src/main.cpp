@@ -3,10 +3,13 @@
 #include "display/display.h"
 #include "epub/sd_card.h"
 #include "screens/main_menu.h"
+#include "screens/reader.h"
 
 #define BUTTON_MENU 4
 #define BUTTON_UP 5
 #define BUTTON_DOWN 6
+#define BUTTON_RIGHT 16
+#define BUTTON_LEFT 17
 
 #define DEBOUNCE_DELAY 50
 
@@ -35,6 +38,8 @@ struct Button
 Button menuButton = {BUTTON_MENU, HIGH, HIGH, 0};
 Button upButton = {BUTTON_UP, HIGH, HIGH, 0};
 Button downButton = {BUTTON_DOWN, HIGH, HIGH, 0};
+Button rightButton = {BUTTON_RIGHT, HIGH, HIGH, 0};
+Button leftButton = {BUTTON_LEFT, HIGH, HIGH, 0};
 
 bool buttonPressed(Button &button)
 {
@@ -70,6 +75,8 @@ void setup()
   pinMode(BUTTON_MENU, INPUT_PULLUP);
   pinMode(BUTTON_UP, INPUT_PULLUP);
   pinMode(BUTTON_DOWN, INPUT_PULLUP);
+  pinMode(BUTTON_RIGHT, INPUT_PULLUP);
+  pinMode(BUTTON_LEFT, INPUT_PULLUP);
 
   SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
 
@@ -77,11 +84,6 @@ void setup()
   displayInit();
 
   menuOpen();
-
-  Serial.printf("Total heap: %d \n", ESP.getHeapSize());
-  Serial.printf("Free heap: %d \n", ESP.getFreeHeap());
-  Serial.printf("Total PSRAM: %d \n", ESP.getPsramSize());
-  Serial.printf("Free PSRAM: %u\n", ESP.getFreePsram());
 }
 
 void loop()
@@ -93,10 +95,13 @@ void loop()
     if (screen == MAIN_SCREEN)
     {
       openBook();
+      screen = BOOK_SCREEN;
     }
     else
     {
       // showSettingsMenu();
+      readerClose();
+      screen = MAIN_SCREEN;
     }
   }
 
@@ -110,7 +115,7 @@ void loop()
     }
     else
     {
-      // goToPreviousPage();
+      goToPreviousPage();
     }
   }
 
@@ -124,7 +129,33 @@ void loop()
     }
     else
     {
-      // goToNextPage();
+      goToNextPage();
+    }
+  }
+
+  if (buttonPressed(rightButton))
+  {
+    Serial.println("Right: pressed");
+    if (screen == MAIN_SCREEN)
+    {
+      goToNextLetter();
+    }
+    else
+    {
+      goToNextPage();
+    }
+  }
+
+  if (buttonPressed(leftButton))
+  {
+    Serial.println("Left: pressed");
+    if (screen == MAIN_SCREEN)
+    {
+      goToPreviousLetter();
+    }
+    else
+    {
+      goToNextPage();
     }
   }
 }

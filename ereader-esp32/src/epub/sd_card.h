@@ -3,7 +3,7 @@
 #include <vector>
 #include <Arduino.h>
 #include <miniz.h>
-#include "zipFile.h"
+#include "atomicEpub.h"
 
 #define SD_CS 15
 
@@ -12,13 +12,19 @@ struct file_entry
     String name;
 };
 
-struct Book
+struct EpubMetadata
 {
-    String path;
-    String title;
-    String author;
-    std::vector<uint8_t> cover;
+    std::string path;
+    std::string title;
+    std::string cover_image_path;
+    std::string base_path;
+    int spine_count = 0;
+    std::vector<EpubTocEntry> toc;
 };
 
+extern std::vector<EpubMetadata> books;
+
 void sdInit(SPIClass &spi);
-void extractMetadata();
+bool load_epub_metadata(const std::string &path, EpubMetadata &out);
+void load_all_epubs();
+void print_all_books();
