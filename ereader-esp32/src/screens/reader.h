@@ -23,3 +23,9 @@ void readerRender(bool fullRefresh = false);
 bool readerOpen(const std::string &epubPath);
 void goToPreviousPage();
 void goToNextPage();
+
+int readerTocCount();
+std::string readerTocTitle(int i);
+int readerCurrentTocIndex(); // TOC entry of the chapter being read
+void readerResume();         // redraw the book after leaving settings
+void readerReflow();         // re-paginate the current chapter (after a font change)

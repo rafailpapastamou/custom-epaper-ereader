@@ -388,8 +388,6 @@ void menuOpen()
 
     print_all_books();
     displayRender(drawMenu, true);
-    goToNextLetter();
-    goToPreviousLetter();
 }
 
 void goToNextBook()

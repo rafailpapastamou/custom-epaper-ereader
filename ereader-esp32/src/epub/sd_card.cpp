@@ -2,6 +2,7 @@
 #include <iostream>
 #include <filesystem>
 #include <string>
+#include "epub/progress.h"
 
 void sdInit(SPIClass &spi)
 {
@@ -103,4 +104,15 @@ void print_all_books()
         Serial.printf("Book:%d: %s\n", i, book.title.c_str());
         i++;
     }
+}
+
+const EpubMetadata *last_opened_book()
+{
+    std::string p = progressLastBookPath();
+    if (p.empty())
+        return nullptr;
+    for (const auto &b : books)
+        if (b.path == p)
+            return &b;
+    return nullptr;
 }

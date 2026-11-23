@@ -11,6 +11,8 @@
 #include "atomicEpub.h"
 #include "epub/xmlParser.h"
 #include "screens/main_menu.h"
+#include "epub/progress.h"
+#include "screens/settings.h"
 
 static Epub *activeBook = nullptr;
 
@@ -244,6 +246,8 @@ static void paginateText(const std::string &text)
 
 static bool loadChapter(int index)
 {
+    displaySetFont(settingsReadingFont());
+
     if (!activeBook ||
         index < 0 ||
         index >= activeBook->get_spine_items_count())
@@ -327,6 +331,8 @@ static bool loadChapter(int index)
 
 static void renderReaderScreen()
 {
+    displaySetFont(settingsReadingFont());
+
     if (!readerReady || !activeBook)
     {
         displayText(12, 28, "Unable to open book");
@@ -390,6 +396,18 @@ static void renderReaderScreen()
 }
 
 // --------------------------------------------------
+// Saving Progress
+// --------------------------------------------------
+
+static std::string activePath;
+
+static void saveProgress()
+{
+    if (readerReady && !activePath.empty())
+        progressSave(activePath, chapterIndex, pageIndex);
+}
+
+// --------------------------------------------------
 // Public reader functions
 // --------------------------------------------------
 
@@ -410,6 +428,8 @@ bool readerOpen(const std::string &epubPath)
     activeBook = nullptr;
 
     pages.clear();
+
+    activePath = epubPath;
 
     chapterIndex = 0;
     pageIndex = 0;
@@ -436,15 +456,31 @@ bool readerOpen(const std::string &epubPath)
         return false;
     }
 
-    if (!loadChapter(0))
+    BookProgress saved;
+    progressLoad(epubPath, saved);
+    if (saved.chapter < 0 || saved.chapter >= activeBook->get_spine_items_count())
+        saved = BookProgress();
+
+    if (!loadChapter(saved.chapter))
     {
-        readerReady = false;
-        readerRender(true);
-        return false;
+        saved = BookProgress();
+        if (!loadChapter(0))
+        {
+            readerReady = false;
+            readerRender(true);
+            return false;
+        }
     }
 
-    readerRender(true);
+    // loadChapter() resets pageIndex to 0, so restore it afterwards
+    pageIndex = saved.page;
+    if (pageIndex < 0)
+        pageIndex = 0;
+    if (pageIndex >= pageCount())
+        pageIndex = pageCount() - 1;
 
+    saveProgress(); // also marks this as the last opened book
+    readerRender(true);
     return true;
 }
 
@@ -463,6 +499,7 @@ void goToNextPage()
         loadChapter(chapterIndex + 1);
     }
 
+    saveProgress();
     readerRender(false);
 }
 
@@ -481,6 +518,7 @@ void goToPreviousPage()
             pageIndex = pageCount() - 1;
     }
 
+    saveProgress();
     readerRender(false);
 }
 
@@ -495,6 +533,7 @@ void readerNextChapter()
         loadChapter(chapterIndex + 1);
     }
 
+    saveProgress();
     readerRender(false);
 }
 
@@ -506,6 +545,7 @@ void readerPreviousChapter()
     if (chapterIndex > 0)
         loadChapter(chapterIndex - 1);
 
+    saveProgress();
     readerRender(false);
 }
 
@@ -529,11 +569,15 @@ void readerOpenTocEntry(int tocIndex)
         loadChapter(target);
     }
 
+    saveProgress();
     readerRender(false);
 }
 
 void readerClose()
 {
+    saveProgress();
+    activePath.clear();
+
     delete activeBook;
     activeBook = nullptr;
 
@@ -545,6 +589,52 @@ void readerClose()
     chapterTitle.clear();
     pages.clear();
 
+    displayUseUiFont();
     // Return to library.
     menuOpen();
+}
+
+int readerTocCount()
+{
+    return activeBook ? activeBook->get_toc_items_count() : 0;
+}
+
+std::string readerTocTitle(int i)
+{
+    if (!activeBook || i < 0 || i >= activeBook->get_toc_items_count())
+        return "";
+    return activeBook->get_toc_item(i).title;
+}
+
+int readerCurrentTocIndex()
+{
+    if (!activeBook)
+        return 0;
+    for (int i = 0; i < activeBook->get_toc_items_count(); ++i)
+        if (activeBook->get_spine_index_for_toc_index(i) == chapterIndex)
+            return i;
+    return 0;
+}
+
+void readerResume()
+{
+    readerRender(true);
+}
+
+void readerReflow()
+{
+    if (!readerReady || !activeBook)
+        return;
+
+    int oldPage = pageIndex;
+    int oldCount = pageCount();
+
+    if (loadChapter(chapterIndex))
+    {
+        // keep roughly the same position in the chapter
+        pageIndex = (int)((long)oldPage * pageCount() / oldCount);
+        if (pageIndex >= pageCount())
+            pageIndex = pageCount() - 1;
+    }
+    saveProgress();
 }

@@ -28,3 +28,4 @@ void sdInit(SPIClass &spi);
 bool load_epub_metadata(const std::string &path, EpubMetadata &out);
 void load_all_epubs();
 void print_all_books();
+const EpubMetadata *last_opened_book();

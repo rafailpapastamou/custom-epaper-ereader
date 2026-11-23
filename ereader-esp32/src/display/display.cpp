@@ -13,6 +13,9 @@ static int partialCount = 0;
 GxEPD2_BW<GxEPD2_420_GDEY042T81, GxEPD2_420_GDEY042T81::HEIGHT> static display(GxEPD2_420_GDEY042T81(EPD_CS, EPD_DC, EPD_RST, EPD_BUSY));
 static U8G2_FOR_ADAFRUIT_GFX u8g2;
 
+void displaySetFont(const uint8_t *font) { u8g2.setFont(font); }
+void displayUseUiFont() { u8g2.setFont(u8g2_font_unifont_t_greek); }
+
 void displayInit()
 {
     display.epd2.selectSPI(SPI, SPISettings(4000000, MSBFIRST, SPI_MODE0));

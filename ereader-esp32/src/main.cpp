@@ -4,6 +4,7 @@
 #include "epub/sd_card.h"
 #include "screens/main_menu.h"
 #include "screens/reader.h"
+#include "screens/settings.h"
 
 #define BUTTON_MENU 4
 #define BUTTON_UP 5
@@ -22,7 +23,8 @@ SET_LOOP_TASK_STACK_SIZE(32 * 1024);
 enum screen_selected
 {
   MAIN_SCREEN,
-  BOOK_SCREEN
+  BOOK_SCREEN,
+  SETTINGS_SCREEN
 };
 
 screen_selected screen = MAIN_SCREEN;
@@ -82,8 +84,28 @@ void setup()
 
   sdInit(SPI);
   displayInit();
-
+  settingsInit();
   menuOpen();
+}
+
+static void applySettingsAction(SettingsAction a)
+{
+  switch (a)
+  {
+  case SETTINGS_RESUME:
+    readerResume();
+    screen = BOOK_SCREEN;
+    break;
+  case SETTINGS_RESUMED:
+    screen = BOOK_SCREEN;
+    break;
+  case SETTINGS_LIBRARY:
+    readerClose();
+    screen = MAIN_SCREEN;
+    break;
+  default:
+    break;
+  }
 }
 
 void loop()
@@ -97,11 +119,14 @@ void loop()
       openBook();
       screen = BOOK_SCREEN;
     }
+    else if (screen == BOOK_SCREEN)
+    {
+      showSettingsMenu();
+      screen = SETTINGS_SCREEN;
+    }
     else
     {
-      // showSettingsMenu();
-      readerClose();
-      screen = MAIN_SCREEN;
+      applySettingsAction(settingsSelect());
     }
   }
 
@@ -110,13 +135,11 @@ void loop()
     Serial.println("Up: pressed");
 
     if (screen == MAIN_SCREEN)
-    {
       goToPreviousBook();
-    }
-    else
-    {
+    else if (screen == BOOK_SCREEN)
       goToPreviousPage();
-    }
+    else
+      settingsUp();
   }
 
   if (buttonPressed(downButton))
@@ -124,38 +147,33 @@ void loop()
     Serial.println("Down: pressed");
 
     if (screen == MAIN_SCREEN)
-    {
       goToNextBook();
-    }
-    else
-    {
+    else if (screen == BOOK_SCREEN)
       goToNextPage();
-    }
+    else
+      settingsDown();
   }
 
   if (buttonPressed(rightButton))
   {
     Serial.println("Right: pressed");
+
     if (screen == MAIN_SCREEN)
-    {
       goToNextLetter();
-    }
-    else
-    {
+    else if (screen == BOOK_SCREEN)
       goToNextPage();
-    }
+    // settings: unused
   }
 
   if (buttonPressed(leftButton))
   {
     Serial.println("Left: pressed");
+
     if (screen == MAIN_SCREEN)
-    {
       goToPreviousLetter();
-    }
+    else if (screen == BOOK_SCREEN)
+      goToPreviousPage();
     else
-    {
-      goToNextPage();
-    }
+      applySettingsAction(settingsBack());
   }
 }
