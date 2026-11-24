@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <SPI.h>
+#include "epub/usb.h"
 #include "display/display.h"
 #include "epub/sd_card.h"
 #include "screens/main_menu.h"
@@ -86,6 +87,8 @@ void setup()
   displayInit();
   settingsInit();
   menuOpen();
+
+  usbInit(); // αρχικοποιείται αφού έχει γίνει sdInit(SPI) ώστε να υπάρχει το SD.numSectors()
 }
 
 static void applySettingsAction(SettingsAction a)
@@ -110,6 +113,16 @@ static void applySettingsAction(SettingsAction a)
 
 void loop()
 {
+  usbLoop();
+
+  // Όταν ο δίσκος είναι ενεργός στον υπολογιστή, παγώνουμε τον κανονικό χειρισμό
+  // μέχρι να γίνει eject και restart.
+  if (usbIsActive())
+  {
+    delay(10);
+    return;
+  }
+
   if (buttonPressed(menuButton))
   {
     Serial.println("Menu: pressed");
@@ -162,7 +175,6 @@ void loop()
       goToNextLetter();
     else if (screen == BOOK_SCREEN)
       goToNextPage();
-    // settings: unused
   }
 
   if (buttonPressed(leftButton))
